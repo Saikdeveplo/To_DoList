@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo List App</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    h1 {
+        text-align: center;
+        color: #333;
+        margin-top: 0;
+    }
+
+    form {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    #todo-input {
+        flex: 1;
+        padding: 10px;
+        font-size: 16px;
+        border: 2px solid #ccc;
+        border-radius: 5px;
+        margin-right: 10px;
+        transition: border-color 0.3s;
+    }
+
+    #todo-input:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+
+    #todo-form button {
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    #todo-form button:hover {
+        background-color: #0056b3;
+    }
+
+    #todo-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    #todo-list li {
+        background-color: #f9f9f9;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background-color 0.3s;
+    }
+
+    #todo-list li:hover {
+        background-color: #f0f0f0;
+    }
+
+    .completed {
+        text-decoration: line-through;
+        color: #888;
+    }
+
+    .delete-btn {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .delete-btn:hover {
+        background-color: #c82333;
+    }
+
+    #user-activity {
+        margin-top: 20px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        display: none;
+    }
+
+    #user-activity.active {
+        display: block;
+    }
+
+    #user-activity h2 {
+        margin-bottom: 20px;
+        color: #333;
+    }
+
+    #activity-log {
+        list-style: none;
+        padding: 0;
+    }
+
+    #activity-log li {
+        padding: 10px 0;
+        border-bottom: 1px solid #ccc;
+        color: #555;
+    }
+
+    @media screen and (max-width: 480px) {
+        .container {
+            padding: 10px;
+        }
+
+        #todo-input {
+            font-size: 14px;
+        }
+
+        #todo-form button {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        #todo-list li {
+            padding: 10px;
+        }
+
+        #user-activity {
+            padding: 15px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Todo List</h1>
+    <form id="todo-form">
+        <input type="text" id="todo-input" placeholder="Add new todo">
+        <button type="submit">Add</button>
+    </form>
+
+    <ul id="todo-list"></ul>
+</div>
+
+<div id="user-activity" class="container">
+    <h2>User Activity Log</h2>
+    <ul id="activity-log"></ul>
+</div>
+
+<script>
+    const todoForm = document.getElementById('todo-form');
+    const todoInput = document.getElementById('todo-input');
+    const todoList = document.getElementById('todo-list');
+    let userActivity = [];
+    let keyPressCount = 0;
+    const requiredKeyPressCount = 3; // Number of key presses required to activate admin mode
+    let isAdminActivated = false;
+
+    // Load todos and user activity log from localStorage on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const todos = JSON.parse(localStorage.getItem('todos')) || [];
+        todos.forEach(todo => addTodoItem(todo.text, todo.completed));
+        
+        userActivity = JSON.parse(localStorage.getItem('userActivity')) || [];
+        renderUserActivity();
+    });
+
+    todoForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const todoText = todoInput.value.trim();
+        if (todoText !== '') {
+            addTodoItem(todoText);
+            todoInput.value = '';
+            logActivity('Added todo: ' + todoText);
+        }
+    });
+
+    function addTodoItem(todoText, completed = false) {
+        const todoItem = document.createElement('li');
+        const deleteButton = document.createElement('button');
+        const checkbox = document.createElement('input');
+
+        todoItem.textContent = todoText;
+        checkbox.type = 'checkbox';
+        deleteButton.textContent = 'Delete';
+        deleteButton.className = 'delete-btn';
+
+        todoItem.appendChild(checkbox);
+        todoItem.appendChild(deleteButton);
+        todoList.appendChild(todoItem);
+
+        checkbox.checked = completed;
+        if (completed) {
+            todoItem.classList.add('completed');
+        }
+
+        // Save todos to localStorage
+        saveTodosToLocalStorage();
+
+        deleteButton.addEventListener('click', function() {
+            todoList.removeChild(todoItem);
+            saveTodosToLocalStorage();
+            logActivity('Deleted todo: ' + todoText);
+        });
+
+        checkbox.addEventListener('change', function() {
+            if (checkbox.checked) {
+                todoItem.classList.add('completed');
+                logActivity('Completed todo: ' + todoText);
+            } else {
+                todoItem.classList.remove('completed');
+                logActivity('Marked todo incomplete: ' + todoText);
+            }
+            saveTodosToLocalStorage();
+        });
+    }
+
+    function saveTodosToLocalStorage() {
+        const todos = Array.from(todoList.children).map(todo => ({
+            text: todo.textContent,
+            completed: todo.querySelector('input[type="checkbox"]').checked
+        }));
+        localStorage.setItem('todos', JSON.stringify(todos));
+    }
+
+    function logActivity(message) {
+        userActivity.push(message);
+        renderUserActivity();
+        localStorage.setItem('userActivity', JSON.stringify(userActivity));
+    }
+
+    // Render user activity log
+    function renderUserActivity() {
+        const activityLog = document.getElementById('activity-log');
+        activityLog.innerHTML = ''; // Clear existing log
+
+        if (isAdminActivated) {
+            userActivity.forEach(activity => {
+                const listItem = document.createElement('li');
+                listItem.textContent = activity;
+                activityLog.appendChild(listItem);
+            });
+            document.getElementById('user-activity').classList.add('active');
+        }
+    }
+
+    // Activate admin mode on pressing a key three times
+    document.addEventListener('keydown', function(event) {
+        const keyPressed = event.key.toLowerCase();
+        if (keyPressed !== 'shift' && keyPressed !== 'control') {
+            if (keyPressed === 't') {
+                keyPressCount++;
+                if (keyPressCount === requiredKeyPressCount) {
+                    activateAdmin();
+                    keyPressCount = 0; // Reset key press count after activating admin mode
+                }
+            } else {
+                keyPressCount = 0; // Reset key press count if a different key is pressed
+            }
+        }
+    });
+
+    function activateAdmin() {
+        const password = prompt('Enter admin password:');
+        const adminPassword = 'admin123'; // Hardcoded admin password
+        if (password === adminPassword) {
+            console.log('Admin activated!');
+            logActivity('Admin activated');
+            isAdminActivated = true;
+            renderUserActivity();
+            // Implement admin-specific functionality here
+        } else {
+            console.log('Incorrect password. Admin activation failed.');
+            logActivity('Admin activation failed');
+        }
+    }
+</script>
+
+</body>
+</html>
